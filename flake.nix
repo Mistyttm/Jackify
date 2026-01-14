@@ -24,18 +24,6 @@
             type = "app";
             program = "${jackify}/bin/jackify";
           };
-          jackify = {
-            type = "app";
-            program = "${jackify}/bin/jackify";
-          };
-          jackify-gui = {
-            type = "app";
-            program = "${jackify}/bin/jackify-gui";
-          };
-          jackify-cli = {
-            type = "app";
-            program = "${jackify}/bin/jackify-cli";
-          };
         };
         
         devShells.default = pkgs.mkShell {
