@@ -1,0 +1,348 @@
+name: Build and Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 0.2.1)'
+        required: true
+        default: '0.2.1'
+
+env:
+  PYTHON_VERSION: '3.11'
+  APP_NAME: jackify
+
+jobs:
+  build-appimage:
+    name: Build AppImage
+    runs-on: ubuntu-20.04
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            fuse \
+            libfuse2 \
+            desktop-file-utils \
+            libglib2.0-bin \
+            zsync \
+            file
+          pip install --upgrade pip setuptools wheel
+          pip install pyinstaller
+
+      - name: Install Python dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Building version: $VERSION"
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller --clean --noconfirm \
+            --name=${{ env.APP_NAME }} \
+            --onefile \
+            --windowed \
+            --add-data "assets:assets" \
+            --hidden-import=PySide6 \
+            --hidden-import=backend \
+            --hidden-import=frontends \
+            --hidden-import=shared \
+            --collect-all PySide6 \
+            frontends/gui/main.py
+
+      - name: Download AppImageTool
+        run: |
+          wget https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool-x86_64.AppImage
+          ./appimagetool-x86_64.AppImage --appimage-extract
+          mv squashfs-root appimagetool.AppDir
+
+      - name: Create AppDir structure
+        run: |
+          mkdir -p AppDir/usr/{bin,lib,share/applications,share/icons/hicolor/256x256/apps}
+          cp dist/${{ env.APP_NAME }} AppDir/usr/bin/
+          
+          # Create desktop file
+          cat > AppDir/usr/share/applications/${{ env.APP_NAME }}.desktop << EOF
+          [Desktop Entry]
+          Name=Jackify
+          Comment=Native Linux Modlist Manager
+          Exec=jackify
+          Icon=jackify
+          Terminal=false
+          Type=Application
+          Categories=Game;Utility;
+          EOF
+          
+          # Copy icon if exists
+          if [ -f assets/images/JackifyLogo_256.png ]; then
+            cp assets/images/JackifyLogo_256.png AppDir/usr/share/icons/hicolor/256x256/apps/${{ env.APP_NAME }}.png
+          fi
+          
+          # Create AppRun
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          SELF=$(readlink -f "$0")
+          HERE=${SELF%/*}
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          exec "${HERE}/usr/bin/jackify" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+      - name: Build AppImage
+        run: |
+          ARCH=x86_64 ./appimagetool.AppDir/AppRun AppDir ${{ env.APP_NAME }}-${{ steps.version.outputs.VERSION }}-x86_64.AppImage
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: ${{ env.APP_NAME }}-${{ steps.version.outputs.VERSION }}-x86_64.AppImage
+
+  build-deb:
+    name: Build DEB Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential
+          sudo gem install --no-document fpm
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install package
+        run: |
+          pip install --upgrade pip setuptools wheel
+          pip install .
+
+      - name: Create package structure
+        run: |
+          mkdir -p package/usr/{bin,lib/python3/dist-packages,share/applications,share/icons/hicolor/256x256/apps}
+          
+          # Install Python package
+          pip install --target=package/usr/lib/python3/dist-packages .
+          
+          # Create wrapper script
+          cat > package/usr/bin/${{ env.APP_NAME }} << 'EOF'
+          #!/usr/bin/env python3
+          import sys
+          sys.path.insert(0, '/usr/lib/python3/dist-packages')
+          from frontends.gui.main import main
+          sys.exit(main())
+          EOF
+          chmod +x package/usr/bin/${{ env.APP_NAME }}
+          
+          # Desktop file
+          cat > package/usr/share/applications/${{ env.APP_NAME }}.desktop << EOF
+          [Desktop Entry]
+          Name=Jackify
+          Comment=Native Linux Modlist Manager
+          Exec=jackify
+          Icon=jackify
+          Terminal=false
+          Type=Application
+          Categories=Game;Utility;
+          EOF
+          
+          # Icon
+          if [ -f assets/images/JackifyLogo_256.png ]; then
+            cp assets/images/JackifyLogo_256.png package/usr/share/icons/hicolor/256x256/apps/${{ env.APP_NAME }}.png
+          fi
+
+      - name: Build DEB package
+        run: |
+          fpm -s dir -t deb \
+            -n ${{ env.APP_NAME }} \
+            -v ${{ steps.version.outputs.VERSION }} \
+            --description "A tool for running Wabbajack modlists natively on Linux" \
+            --url "https://github.com/Omni-guides/Jackify" \
+            --maintainer "Omni-guides" \
+            --license "GPL-3.0" \
+            --category "games" \
+            --depends "python3 >= 3.8" \
+            --depends "python3-pip" \
+            --depends "winetricks >= 20210206" \
+            --depends "wget" \
+            --depends "curl" \
+            --depends "cabextract" \
+            --depends "p7zip-full" \
+            --depends "unzip" \
+            --depends "perl" \
+            --deb-priority "optional" \
+            -C package
+
+      - name: Upload DEB
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: "*.deb"
+
+  build-rpm:
+    name: Build RPM Package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ruby ruby-dev rubygems build-essential rpm
+          sudo gem install --no-document fpm
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install package
+        run: |
+          pip install --upgrade pip setuptools wheel
+          pip install .
+
+      - name: Create package structure
+        run: |
+          mkdir -p package/usr/{bin,lib/python3/dist-packages,share/applications,share/icons/hicolor/256x256/apps}
+          
+          # Install Python package
+          pip install --target=package/usr/lib/python3/dist-packages .
+          
+          # Create wrapper script
+          cat > package/usr/bin/${{ env.APP_NAME }} << 'EOF'
+          #!/usr/bin/env python3
+          import sys
+          sys.path.insert(0, '/usr/lib/python3/dist-packages')
+          from frontends.gui.main import main
+          sys.exit(main())
+          EOF
+          chmod +x package/usr/bin/${{ env.APP_NAME }}
+          
+          # Desktop file
+          cat > package/usr/share/applications/${{ env.APP_NAME }}.desktop << EOF
+          [Desktop Entry]
+          Name=Jackify
+          Comment=Native Linux Modlist Manager
+          Exec=jackify
+          Icon=jackify
+          Terminal=false
+          Type=Application
+          Categories=Game;Utility;
+          EOF
+          
+          # Icon
+          if [ -f assets/images/JackifyLogo_256.png ]; then
+            cp assets/images/JackifyLogo_256.png package/usr/share/icons/hicolor/256x256/apps/${{ env.APP_NAME }}.png
+          fi
+
+      - name: Build RPM package
+        run: |
+          fpm -s dir -t rpm \
+            -n ${{ env.APP_NAME }} \
+            -v ${{ steps.version.outputs.VERSION }} \
+            --description "A tool for running Wabbajack modlists natively on Linux" \
+            --url "https://github.com/Omni-guides/Jackify" \
+            --maintainer "Omni-guides" \
+            --license "GPL-3.0" \
+            --category "Amusements/Games" \
+            --depends "python3 >= 3.8" \
+            --depends "python3-pip" \
+            --depends "winetricks >= 20210206" \
+            --depends "wget" \
+            --depends "curl" \
+            --depends "cabextract" \
+            --depends "p7zip" \
+            --depends "unzip" \
+            --depends "perl" \
+            -C package
+
+      - name: Upload RPM
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm
+          path: "*.rpm"
+
+  release:
+    name: Upload Release Assets
+    needs: [build-appimage, build-deb, build-rpm]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'release'
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Upload AppImage to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./appimage/${{ env.APP_NAME }}-*.AppImage
+          asset_name: ${{ env.APP_NAME }}-${{ github.ref_name }}-x86_64.AppImage
+          asset_content_type: application/octet-stream
+
+      - name: Upload DEB to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./deb/*.deb
+          asset_name: ${{ env.APP_NAME }}_${{ github.ref_name }}_amd64.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+      - name: Upload RPM to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./rpm/*.rpm
+          asset_name: ${{ env.APP_NAME }}-${{ github.ref_name }}-1.x86_64.rpm
+          asset_content_type: application/x-rpm
