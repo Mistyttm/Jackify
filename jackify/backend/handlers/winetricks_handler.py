@@ -88,7 +88,7 @@ class WinetricksHandler:
             except Exception:
                 pass
 
-        self.logger.debug(f"Bundled {tool_name} not found in tools directory")
+        self.logger.debug(f"System {tool_name} not found in PATH")
         return None
 
     def _get_bundled_cabextract(self) -> Optional[str]:
@@ -266,30 +266,7 @@ class WinetricksHandler:
             self.logger.error(f"Cannot run winetricks: Failed to get Proton wine binary: {e}")
             return False
 
-        # Set up bundled tools directory for winetricks
-        # Get tools directory from any bundled tool (winetricks, cabextract, etc.)
-        tools_dir = None
-        bundled_tools = []
-        
-        # Check for bundled tools and collect their directory
-        tool_names = ['cabextract', 'wget', 'unzip', '7z', 'xz', 'sha256sum']
-        for tool_name in tool_names:
-            bundled_tool = self._get_bundled_tool(tool_name, fallback_to_system=False)
-            if bundled_tool:
-                bundled_tools.append(tool_name)
-                if tools_dir is None:
-                    tools_dir = os.path.dirname(bundled_tool)
-        
-        # Prepend tools directory to PATH if we have any bundled tools
-        if tools_dir:
-            env['PATH'] = f"{tools_dir}:{env.get('PATH', '')}"
-            self.logger.info(f"Using bundled tools directory: {tools_dir}")
-            self.logger.info(f"Bundled tools available: {', '.join(bundled_tools)}")
-        else:
-            self.logger.debug("No bundled tools found, relying on system PATH")
-
-        # CRITICAL: Check for winetricks dependencies BEFORE attempting installation
-        # This helps diagnose failures on systems where dependencies are missing
+        # Check for winetricks system dependencies
         self.logger.info("=== Checking winetricks dependencies ===")
         missing_deps = []
         dependency_checks = {
@@ -300,7 +277,8 @@ class WinetricksHandler:
             '7z': ['7z', '7za', '7zr'],
             'xz': 'xz',
             'sha256sum': ['sha256sum', 'sha256', 'shasum'],
-            'perl': 'perl'
+            'perl': 'perl',
+            'cabextract': 'cabextract'
         }
         
         for dep_name, commands in dependency_checks.items():
@@ -308,31 +286,21 @@ class WinetricksHandler:
             if isinstance(commands, str):
                 commands = [commands]
             
-            # First check for bundled version
-            bundled_tool = None
+            # Check system PATH
             for cmd in commands:
-                bundled_tool = self._get_bundled_tool(cmd, fallback_to_system=False)
-                if bundled_tool:
-                    self.logger.info(f"  ✓ {dep_name}: {bundled_tool} (bundled)")
-                    found = True
-                    break
-            
-            # If not bundled, check system PATH
-            if not found:
-                for cmd in commands:
-                    try:
-                        result = subprocess.run(['which', cmd], capture_output=True, timeout=2)
-                        if result.returncode == 0:
-                            cmd_path = result.stdout.decode().strip()
-                            self.logger.info(f"  ✓ {dep_name}: {cmd_path} (system)")
-                            found = True
-                            break
-                    except Exception:
-                        pass
+                try:
+                    result = subprocess.run(['which', cmd], capture_output=True, timeout=2)
+                    if result.returncode == 0:
+                        cmd_path = result.stdout.decode().strip()
+                        self.logger.info(f"  ✓ {dep_name}: {cmd_path}")
+                        found = True
+                        break
+                except Exception:
+                    pass
             
             if not found:
                 missing_deps.append(dep_name)
-                self.logger.warning(f"  ✗ {dep_name}: NOT FOUND (neither bundled nor system)")
+                self.logger.warning(f"  ✗ {dep_name}: NOT FOUND")
         
         if missing_deps:
             self.logger.warning(f"Missing winetricks dependencies: {', '.join(missing_deps)}")

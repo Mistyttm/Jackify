@@ -88,58 +88,6 @@ class ProtontricksHandler:
         logger.warning("Could not determine STEAM_DIR from libraryfolders.vdf")
         return None
     
-    def _get_bundled_winetricks_path(self) -> Optional[Path]:
-        """
-        Get the path to the bundled winetricks script following AppImage best practices.
-        Same logic as WinetricksHandler._get_bundled_winetricks_path()
-        """
-        possible_paths = []
-
-        # AppImage environment - use APPDIR (standard AppImage best practice)
-        if os.environ.get('APPDIR'):
-            appdir_path = Path(os.environ['APPDIR']) / 'opt' / 'jackify' / 'tools' / 'winetricks'
-            possible_paths.append(appdir_path)
-
-        # Development environment - relative to module location
-        module_dir = Path(__file__).parent.parent.parent  # Go from handlers/ up to jackify/
-        dev_path = module_dir / 'tools' / 'winetricks'
-        possible_paths.append(dev_path)
-
-        # Try each path until we find one that works
-        for path in possible_paths:
-            if path.exists() and os.access(path, os.X_OK):
-                logger.debug(f"Found bundled winetricks at: {path}")
-                return path
-
-        logger.warning(f"Bundled winetricks not found. Tried paths: {possible_paths}")
-        return None
-    
-    def _get_bundled_cabextract_path(self) -> Optional[Path]:
-        """
-        Get the path to the bundled cabextract binary following AppImage best practices.
-        Same logic as WinetricksHandler._get_bundled_cabextract()
-        """
-        possible_paths = []
-
-        # AppImage environment - use APPDIR (standard AppImage best practice)
-        if os.environ.get('APPDIR'):
-            appdir_path = Path(os.environ['APPDIR']) / 'opt' / 'jackify' / 'tools' / 'cabextract'
-            possible_paths.append(appdir_path)
-
-        # Development environment - relative to module location
-        module_dir = Path(__file__).parent.parent.parent  # Go from handlers/ up to jackify/
-        dev_path = module_dir / 'tools' / 'cabextract'
-        possible_paths.append(dev_path)
-
-        # Try each path until we find one that works
-        for path in possible_paths:
-            if path.exists() and os.access(path, os.X_OK):
-                logger.debug(f"Found bundled cabextract at: {path}")
-                return path
-
-        logger.warning(f"Bundled cabextract not found. Tried paths: {possible_paths}")
-        return None
-
     def _get_clean_subprocess_env(self):
         """
         Create a clean environment for subprocess calls by removing bundle-specific
@@ -389,28 +337,8 @@ class ProtontricksHandler:
         else:
             logger.warning("Could not determine STEAM_DIR from libraryfolders.vdf - protontricks may prompt user")
 
-        # CRITICAL: Only set bundled winetricks for NATIVE protontricks
-        # Flatpak protontricks runs in a sandbox and CANNOT access AppImage FUSE mounts (/tmp/.mount_*)
-        # Flatpak protontricks has its own winetricks bundled inside the flatpak
-        if self.which_protontricks == 'native':
-            winetricks_path = self._get_bundled_winetricks_path()
-            if winetricks_path:
-                env['WINETRICKS'] = str(winetricks_path)
-                logger.debug(f"Set WINETRICKS for native protontricks: {winetricks_path}")
-            else:
-                logger.warning("Bundled winetricks not found - native protontricks will use system winetricks")
-
-            cabextract_path = self._get_bundled_cabextract_path()
-            if cabextract_path:
-                cabextract_dir = str(cabextract_path.parent)
-                current_path = env.get('PATH', '')
-                env['PATH'] = f"{cabextract_dir}{os.pathsep}{current_path}" if current_path else cabextract_dir
-                logger.debug(f"Added bundled cabextract to PATH for native protontricks: {cabextract_dir}")
-            else:
-                logger.warning("Bundled cabextract not found - native protontricks will use system cabextract")
-        else:
-            # Flatpak protontricks - DO NOT set bundled paths
-            logger.debug(f"Using {self.which_protontricks} protontricks - it has its own winetricks (cannot access AppImage mounts)")
+        # winetricks and cabextract must be installed via system package manager
+        # No bundled tools are used - all dependencies come from the system
         
         # CRITICAL: Suppress winetricks verbose output when not in debug mode
         # WINETRICKS_SUPER_QUIET suppresses "Executing..." messages from winetricks

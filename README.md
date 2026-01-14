@@ -81,6 +81,33 @@ Currently, there are two main functions that Jackify will perform at this stage 
   - `sudo apt install libxcb-cursor-dev`
   - Required for Qt GUI to initialize properly
 
+### System Dependencies
+
+Jackify requires the following system tools to be installed:
+
+- **winetricks** (20210206 or newer) - Wine component installation
+- **wget** or **curl** - File downloads
+- **cabextract** - Cabinet file extraction
+- **p7zip** (7z, 7za, or 7zr) - Archive extraction
+- **unzip** - ZIP file extraction
+- **perl** - Required by winetricks
+
+Install via your package manager:
+
+```bash
+# Ubuntu/Debian
+sudo apt install winetricks wget curl cabextract p7zip-full unzip perl
+
+# Arch/Manjaro
+sudo pacman -S winetricks wget curl cabextract p7zip unzip perl
+
+# Fedora
+sudo dnf install winetricks wget curl cabextract p7zip unzip perl
+
+# OpenSUSE
+sudo zypper install winetricks wget curl cabextract p7zip unzip perl
+```
+
 ### Installation
 
 ```bash

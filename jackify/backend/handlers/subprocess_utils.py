@@ -41,15 +41,11 @@ def get_clean_subprocess_env(extra_env=None):
     """
     Returns a copy of os.environ with bundled-runtime variables and other problematic entries removed.
     Optionally merges in extra_env dict.
-    Also ensures bundled tools (lz4, cabextract, winetricks) are in PATH when running as AppImage.
-    CRITICAL: Preserves system PATH to ensure system utilities (wget, curl, unzip, xz, gzip, sha256sum) are available.
+    CRITICAL: Preserves system PATH to ensure system utilities are available.
     """
     from pathlib import Path
     
     env = os.environ.copy()
-
-    # Save APPDIR before removing it (we need it to find bundled tools)
-    appdir = env.get('APPDIR')
 
     # Remove AppImage-specific variables that can confuse subprocess calls
     # These variables cause subprocesses to be interpreted as new AppImage launches
@@ -65,48 +61,19 @@ def get_clean_subprocess_env(extra_env=None):
     current_path = env.get('PATH', '')
 
     # Ensure common system directories are in PATH if not already present
-    # This is critical for tools like lz4 that might be in /usr/bin, /usr/local/bin, etc.
     system_paths = ['/usr/bin', '/usr/local/bin', '/bin', '/sbin', '/usr/sbin']
     path_parts = current_path.split(':') if current_path else []
     for sys_path in system_paths:
         if sys_path not in path_parts and os.path.isdir(sys_path):
             path_parts.append(sys_path)
 
-    # Add bundled tools directory to PATH if running as AppImage
-    # This ensures cabextract and winetricks are available to subprocesses
-    # System utilities (wget, curl, unzip, xz, gzip, sha256sum) come from system PATH
-    # Note: appdir was saved before env cleanup above
-    # Note: lz4 was only needed for TTW installer and is no longer bundled
-    tools_dir = None
-    
-    if appdir:
-        # Running as AppImage - use APPDIR
-        tools_dir = os.path.join(appdir, 'opt', 'jackify', 'tools')
-        logger = logging.getLogger(__name__)
-        if not os.path.isdir(tools_dir):
-            logger.debug(f"Tools directory not found: {tools_dir}")
-            tools_dir = None
-        else:
-            # Tools directory exists - add it to PATH for cabextract, winetricks, etc.
-            logger.debug(f"Found bundled tools directory at: {tools_dir}")
-    else:
-        logging.getLogger(__name__).debug("APPDIR not set - not running as AppImage, skipping bundled tools")
-    
-    # Build final PATH: system PATH first, then bundled tools (lz4, cabextract, winetricks)
-    # System utilities (wget, curl, unzip, xz, gzip, sha256sum) are preferred from system
+    # Build final PATH from system paths only
     final_path_parts = []
-    
-    # Add all other paths first (system utilities take precedence)
     seen = set()
     for path_part in path_parts:
         if path_part and path_part not in seen:
             final_path_parts.append(path_part)
             seen.add(path_part)
-    
-    # Then add bundled tools directory (for cabextract, winetricks, etc.)
-    if tools_dir and os.path.isdir(tools_dir) and tools_dir not in seen:
-        final_path_parts.append(tools_dir)
-        seen.add(tools_dir)
     
     
     env['PATH'] = ':'.join(final_path_parts)
