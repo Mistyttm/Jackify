@@ -42,7 +42,7 @@ Jackify is an almost Linux-native application written in Python, with a GUI prod
 
 Currently, there are two main functions that Jackify will perform at this stage of development:
 
-- Install Wabbajack modlists using jackify-engine (more on jackify-engine in the full Introduction wiki linked above).
+- Install Wabbajack modlists using jackify-engine (automatically downloaded from [dev-jackify-engine](https://github.com/Omni-guides/dev-jackify-engine) on first use).
 - Fully automate the configuration of the Steam shortcut, modlist paths, prefix components, launch options and various other tweaks required to run Wabbajack Modlists on Linux.
 - With both of the above combined, Jackify provides an end-to-end modlist installation and configuration process, automatically.
 
@@ -144,13 +144,14 @@ Jackify follows a clean separation between frontend and backend:
 
 - Backend Services: Pure business logic with no UI dependencies
 - Frontend Interfaces: CLI and GUI implementations using shared backend
-- Native Engine: Powered by jackify-engine (custom fork of wabbajack-cli.exe) for optimal performance and compatibility
+- Native Engine: Powered by jackify-engine (automatically downloaded from [dev-jackify-engine](https://github.com/Omni-guides/dev-jackify-engine)) for optimal performance and compatibility
 - Steam Integration: Direct Steam shortcuts.vdf manipulation for creating and modifying Steam shortcuts
 
 ## Configuration
 Configuration files are stored in:
 
 - Jackify Related: ~/Jackify/
+- jackify-engine: ~/Jackify/engine/ (automatically downloaded on first use)
 - jackify-engine config: ~/.config/jackify/
 
 ## Development
