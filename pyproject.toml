@@ -52,30 +52,11 @@ dev = [
 ]
 
 [project.scripts]
-jackify = "__main__:main"
+jackify = "frontends.gui.main:main"
 
-[tool.setuptools]
-packages = [
-    "backend",
-    "backend.core",
-    "backend.handlers", 
-    "backend.models",
-    "backend.services",
-    "backend.data",
-    "backend.utils",
-    "frontends",
-    "frontends.cli",
-    "frontends.cli.commands",
-    "frontends.cli.menus",
-    "frontends.cli.ui",
-    "frontends.gui",
-    "frontends.gui.screens",
-    "frontends.gui.widgets",
-    "frontends.gui.dialogs",
-    "frontends.gui.mixins",
-    "frontends.gui.services",
-    "shared",
-]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*", "frontends*", "shared*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.ui", "*.qrc", "*.png", "*.svg"]

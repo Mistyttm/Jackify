@@ -51,7 +51,7 @@ def _clear_screen_fallback():
 
 def print_jackify_banner():
     """Print the Jackify application banner"""
-    from jackify import __version__
+    from shared import __version__
     version_text = f"Jackify CLI ({__version__})"
     # Center the version text in the banner (72 chars content width)
     padding = (72 - len(version_text)) // 2

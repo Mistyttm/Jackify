@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Optional, Callable
 import requests
 
-from ...shared.appimage_utils import get_appimage_path, is_appimage, can_self_update
+from shared.appimage_utils import get_appimage_path, is_appimage, can_self_update
 
 
 logger = logging.getLogger(__name__)

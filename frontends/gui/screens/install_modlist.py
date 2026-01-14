@@ -2124,7 +2124,7 @@ class InstallModlistScreen(QWidget):
         
         # Clear console for fresh installation output
         self.console.clear()
-        from jackify import __version__ as jackify_version
+        from shared import __version__ as jackify_version
         self._safe_append_text(f"Jackify v{jackify_version}")
         self._safe_append_text("Starting modlist installation with custom progress handling...")
         

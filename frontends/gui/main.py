@@ -80,7 +80,7 @@ if '--env-diagnostic' in sys.argv:
     
     sys.exit(0)
 
-from jackify import __version__ as jackify_version
+from shared import __version__ as jackify_version
 
 # Initialize logger
 logger = logging.getLogger(__name__)
@@ -94,7 +94,7 @@ if '-v' in sys.argv or '--version' in sys.argv or '-V' in sys.argv:
     sys.exit(0)
 
 
-from jackify import __version__
+from shared import __version__
 
 # Add src directory to Python path
 src_dir = Path(__file__).parent.parent.parent.parent
@@ -1233,7 +1233,7 @@ class JackifyMainWindow(QMainWindow):
     def _initialize_backend(self):
         """Initialize backend services for direct use (no subprocess)"""
         # Detect Steam installation types once at startup
-        from ...shared.steam_utils import detect_steam_installation_types
+        from shared.steam_utils import detect_steam_installation_types
         is_flatpak, is_native = detect_steam_installation_types()
 
         # Determine system info with Steam detection

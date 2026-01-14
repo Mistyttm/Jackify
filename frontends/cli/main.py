@@ -16,7 +16,7 @@ import logging
 from backend.models.configuration import SystemInfo
 from backend.services.modlist_service import ModlistService
 from shared.colors import COLOR_INFO, COLOR_ERROR, COLOR_RESET
-from jackify import __version__ as jackify_version
+from shared import __version__ as jackify_version
 
 # Import our command handlers
 from .commands.configure_modlist import ConfigureModlistCommand
@@ -60,7 +60,7 @@ class JackifyCLI:
         self._configure_logging_early()
 
         # Detect Steam installation types once at startup
-        from ...shared.steam_utils import detect_steam_installation_types
+        from shared.steam_utils import detect_steam_installation_types
         is_flatpak, is_native = detect_steam_installation_types()
 
         # Determine system info with Steam detection
