@@ -86,52 +86,34 @@ logger = logging.getLogger(__name__) # Standard logger init
 
 # Helper function to get path to jackify-install-engine
 def get_jackify_engine_path():
-    # Priority 1: Environment variable override (for AppImage writable engine copy)
-    env_engine_path = os.environ.get('JACKIFY_ENGINE_PATH')
-    if env_engine_path and os.path.exists(env_engine_path):
-        logger.debug(f"Using engine from environment variable: {env_engine_path}")
-        return env_engine_path
+    """
+    Returns the path to jackify-engine executable.
+    Uses EngineService to manage engine installation and auto-download if needed.
     
-    # Priority 2: AppImage bundle (most specific detection)
-    appdir = os.environ.get('APPDIR')
-    if appdir:
-        # Running inside AppImage
-        # Engine is expected at <appdir>/opt/jackify/engine/jackify-engine
-        engine_path = os.path.join(appdir, 'opt', 'jackify', 'engine', 'jackify-engine')
-        if os.path.exists(engine_path):
-            return engine_path
-        # Fallback: log warning but continue to other detection methods
-        logger.warning(f"AppImage engine not found at expected path: {engine_path}")
+    Returns:
+        str: Path to jackify-engine executable
+    """
+    from jackify.backend.services.engine_service import EngineService
     
-    # Priority 3: Check if THIS process is actually running from Jackify AppImage
-    # (not just inheriting APPDIR from another AppImage like Cursor)
-    appdir = os.environ.get('APPDIR')
-    if appdir and sys.argv[0] and 'jackify' in sys.argv[0].lower() and '/tmp/.mount_' in sys.argv[0]:
-        # Only use AppImage path if we're actually running a Jackify AppImage
-        engine_path = os.path.join(appdir, 'opt', 'jackify', 'engine', 'jackify-engine')
-        if os.path.exists(engine_path):
-            return engine_path
-        # Log if AppImage engine is missing
-        logger.warning(f"AppImage engine not found at expected path: {engine_path}")
+    # Priority 1: Environment variable override (for testing/development)
+    env_path = os.environ.get('JACKIFY_ENGINE_PATH')
+    if env_path and os.path.exists(env_path):
+        logger.debug(f"Using JACKIFY_ENGINE_PATH: {env_path}")
+        return env_path
     
-    # Priority 3: Source execution (development/normal Python environment)
-    # Current file is in src/jackify/backend/core/modlist_operations.py
-    # Engine is at src/jackify/engine/jackify-engine
-    current_file_dir = os.path.dirname(os.path.abspath(__file__))
-    # Navigate up from src/jackify/backend/core/ to src/jackify/
-    jackify_dir = os.path.dirname(os.path.dirname(current_file_dir))
-    engine_path = os.path.join(jackify_dir, 'engine', 'jackify-engine')
-    if os.path.exists(engine_path):
-        return engine_path
-        
-    # If all else fails, log error and return the source path anyway
-    logger.error(f"jackify-engine not found in any expected location. Tried:")
-    logger.error(f"  AppImage: {appdir or 'N/A'}/opt/jackify/engine/jackify-engine") 
-    logger.error(f"  Source: {engine_path}")
+    # Use EngineService to locate or download engine
+    engine_service = EngineService()
+    success, engine_path, error = engine_service.ensure_engine_installed(auto_download=True)
+    
+    if success and engine_path:
+        return str(engine_path)
+    
+    # Failed to get engine
+    logger.error(f"Failed to locate or download jackify-engine: {error}")
     logger.error("This will likely cause installation failures.")
     
-    # Return source path as final fallback
-    return engine_path
+    # Return expected path as fallback (will fail but provides clear error location)
+    return str(engine_service.get_engine_install_dir() / "jackify-engine")
 
 class ModlistInstallCLI:
     """CLI interface for modlist installation operations."""

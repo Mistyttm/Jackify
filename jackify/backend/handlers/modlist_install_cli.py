@@ -48,19 +48,24 @@ logger = logging.getLogger(__name__) # Standard logger init
 
 # Helper function to get path to jackify-install-engine
 def get_jackify_engine_path():
-    appdir = os.environ.get('APPDIR')
-    if appdir:
-        # Running inside AppImage
-        # Engine is expected at <appdir>/opt/jackify/engine/jackify-engine
-        return os.path.join(appdir, 'opt', 'jackify', 'engine', 'jackify-engine')
-    else:
-        # Running in a normal Python environment from source
-        # Current file is in src/jackify/backend/handlers/modlist_install_cli.py
-        # Engine is at src/jackify/engine/jackify-engine
-        current_file_dir = os.path.dirname(os.path.abspath(__file__))
-        # Navigate up from src/jackify/backend/handlers/ to src/jackify/
-        jackify_dir = os.path.dirname(os.path.dirname(current_file_dir))
-        return os.path.join(jackify_dir, 'engine', 'jackify-engine')
+    """Get path to jackify-engine, downloading if needed"""
+    from jackify.backend.services.engine_service import EngineService
+    
+    # Priority 1: Environment variable override
+    env_path = os.environ.get('JACKIFY_ENGINE_PATH')
+    if env_path and os.path.exists(env_path):
+        return env_path
+    
+    # Use EngineService to locate or download
+    engine_service = EngineService()
+    success, engine_path, error = engine_service.ensure_engine_installed(auto_download=True)
+    
+    if success and engine_path:
+        return str(engine_path)
+    
+    # Fallback
+    logger.error(f"Failed to get jackify-engine: {error}")
+    return str(engine_service.get_engine_install_dir() / "jackify-engine")
 
 class ModlistInstallCLI:
     """

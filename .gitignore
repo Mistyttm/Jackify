@@ -20,7 +20,7 @@ core/modules/__pycache__/
 
 # Jackify engine temp and output files
 jackify-install-engine/temp/
-jackify/engine/temp/
+jackify/engine/
 jackify-install-engine/*.log
 jackify-install-engine/*.dds
 
