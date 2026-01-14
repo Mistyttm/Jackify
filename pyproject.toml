@@ -1,0 +1,93 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "jackify"
+version = "0.2.1"
+description = "A tool for running Wabbajack modlists natively on Linux"
+readme = "README.md"
+license = {text = "GPL-3.0-or-later"}
+authors = [
+    {name = "Omni-guides"}
+]
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: End Users/Desktop",
+    "Topic :: Games/Entertainment",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Operating System :: POSIX :: Linux",
+]
+keywords = ["wabbajack", "modlist", "linux", "gaming", "proton", "steam"]
+dependencies = [
+    "PySide6>=6.5.0",
+    "psutil>=5.8.0",
+    "requests>=2.25.0",
+    "tqdm>=4.65.0",
+    "pycryptodome>=3.19.0",
+    "PyYAML>=6.0",
+    "vdf>=3.4",
+    "packaging>=21.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/Omni-guides/Jackify"
+Repository = "https://github.com/Omni-guides/Jackify"
+Issues = "https://github.com/Omni-guides/Jackify/issues"
+Wiki = "https://github.com/Omni-guides/Jackify/wiki"
+"NexusMods" = "https://www.nexusmods.com/site/mods/1427"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "black>=22.0",
+    "flake8>=5.0",
+]
+
+[project.scripts]
+jackify = "__main__:main"
+jackify-gui = "frontends.gui.main:main"
+jackify-cli = "frontends.cli.main:main"
+
+[tool.setuptools]
+packages = [
+    "backend",
+    "backend.core",
+    "backend.handlers", 
+    "backend.models",
+    "backend.services",
+    "backend.data",
+    "backend.utils",
+    "frontends",
+    "frontends.cli",
+    "frontends.cli.commands",
+    "frontends.cli.menus",
+    "frontends.cli.ui",
+    "frontends.gui",
+    "frontends.gui.screens",
+    "frontends.gui.widgets",
+    "frontends.gui.dialogs",
+    "frontends.gui.mixins",
+    "frontends.gui.services",
+    "shared",
+]
+
+[tool.setuptools.package-data]
+"*" = ["*.ui", "*.qrc", "*.png", "*.svg"]
+
+[tool.black]
+line-length = 120
+target-version = ['py38', 'py39', 'py310', 'py311']
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
